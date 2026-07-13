@@ -1,0 +1,47 @@
+PROJECT: 15_KMeans_UNSUP
+TITLE: Data Sources & Feature Engineering
+
+--------------------------------------------------
+OVERVIEW:
+This dataset contains 1,872 batch production records from a chemical plant reactor historian spanning three production campaigns. The ML task is unsupervised clustering (K-Means, k=4) to discover natural operating modes without predefined labels. No target variable is used during training; cluster_true is held out for external validation only (ARI = 0.9020). Four operating modes discovered: Normal Operation (33.2%), Slow Reaction / Low Yield (24.1%), Poor Heat Transfer (21.3%), Aggressive / Runaway Risk (21.5%).
+
+--------------------------------------------------
+REAL-WORLD DATA SOURCES:
+
+Feature                             | Source System                      | Instrument
+------------------------------------|------------------------------------|------------------------------
+temp_max_c                          | DCS (Distributed Control System)   | Type-K thermocouple in reactor jacket
+pressure_max_bar                    | DCS                                | Piezoelectric pressure transmitter
+agitation_rpm                       | VFD feedback loop                  | Agitator drive tachometer
+conc_a_initial_pct, conc_b_initial_pct | MES / Batch recipe server       | Pre-batch dosing records
+cooling_flow_l_min                  | DCS                                | Magnetic flow meter on cooling line
+reaction_time_min                   | MES / Batch execution system       | Start/stop timestamps
+final_conversion_pct                | PAT / LIMS                         | In-line NIR or GC end-of-batch analysis
+
+--------------------------------------------------
+VARIABLE DESCRIPTIONS:
+
+temp_max_c             - Peak temperature reached during the batch (°C); strongly correlated with pressure (r = 0.81) — the classical exothermic signature. Runaway cluster: 99°C, Normal: 80°C.
+pressure_max_bar       - Maximum pressure recorded per batch (bar); driven by temperature via Arrhenius kinetics. Runaway cluster: 4.38 bar, Normal: 2.51 bar.
+agitation_rpm          - Stirrer / agitator speed during reaction (rpm); affects mass transfer and mixing uniformity. Runaway cluster: 381 rpm, Normal: 297 rpm.
+conc_a_initial_pct     - Initial concentration of reactant A (%); determines reaction potential. Logged from pre-batch dosing records.
+conc_b_initial_pct     - Initial concentration of reactant B (%); balances reaction chemistry with reactant A.
+cooling_flow_l_min     - Cooling jacket flow rate (L/min); negatively correlated with temperature (r = -0.79). When this variable collapses, the others accelerate. Runaway cluster: 61 L/min, Normal: 89 L/min.
+reaction_time_min      - Total batch duration (min); shorter when temperature is higher — Arrhenius kinetics. Runaway cluster: 62 min, Normal: 81 min.
+final_conversion_pct   - Reactant conversion at batch end (%); highest in the runaway cluster (98%) despite unsafe conditions. Normal: 95%.
+cluster_true           - Ground-truth operating mode (0–3); held out — used for external validation only, not during K-Means training.
+
+--------------------------------------------------
+FEATURE ENGINEERING:
+
+StandardScaler applied to all 8 process variables — mandatory for K-Means because the algorithm minimizes Euclidean distances; without scaling, high-magnitude variables (°C, rpm) would implicitly dominate. No train/test split — the full dataset is used for unsupervised structure discovery. k=4 selected via agreement between Elbow method and Silhouette score (peak Silhouette = 0.4396). Hopkins statistic = 0.6657 (> 0.50) confirms non-random cluster structure. Stability analysis across 10 random seeds: Silhouette std = 0.0000 — K-Means converges to the same solution deterministically.
+
+--------------------------------------------------
+BUSINESS CONTEXT:
+
+Used by process engineers and safety managers in chemical batch reactor operations. K-Means answers the prior question that threshold-based alarm systems cannot: how many distinct behavioral regimes does this reactor actually exhibit, and what are their multivariate signatures? The C1 cluster (Poor Heat Transfer: 92°C, 44 L/min, no individual alarm fires) is the most operationally valuable finding — it identifies a silent failure mode where each sensor stays below its individual alarm threshold while the heat balance is degrading toward a runaway condition.
+
+--------------------------------------------------
+GOAL:
+
+Discover the four natural operating modes of a batch chemical reactor from 8 process variables without predefined labels, enabling process engineers to define SPC baselines from the Normal Operation cluster, identify batches drifting toward runaway conditions, and write targeted corrective actions based on centroid profiles in physical units. Model achieved ARI = 0.902, NMI = 0.881 vs. held-out ground truth. Silhouette = 0.333, Calinski-Harabasz = 1140.80, Davies-Bouldin = 1.171.

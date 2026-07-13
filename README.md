@@ -16,7 +16,7 @@ This is the paradox of threshold-based process control in exothermic batch react
 
 K-Means clustering operates exactly where rule-based systems fail. It doesn't evaluate sensors one at a time. It sees all eight process variables simultaneously, as a point in an eight-dimensional space, and asks: **which neighborhood does this batch belong to?**
 
-This project applies K-Means to **1,500 batch production records** from a chemical plant reactor historian. No labels. No predefined rules. No assumptions about what constitutes a "bad" batch. The algorithm is given raw process data and asked to find the natural groupings — the distinct operating regimes that the reactor itself generates. What it finds are four modes: one safe, one inefficient, one symptomatic of a failing cooling system, and one that demands immediate intervention.
+This project applies K-Means to **1,872 batch production records** from a chemical plant reactor historian spanning three production campaigns. No labels. No predefined rules. No assumptions about what constitutes a "bad" batch. The algorithm is given raw process data and asked to find the natural groupings — the distinct operating regimes that the reactor itself generates. What it finds are four modes: one safe, one inefficient, one symptomatic of a failing cooling system, and one that demands immediate intervention.
 
 > ✅ **This project is completely free.** Full dataset and simulator included.
 > If this helped you, check out the rest of the portfolio at
@@ -26,7 +26,7 @@ This project applies K-Means to **1,500 batch production records** from a chemic
 
 ## 📊 Dataset
 
-**File:** `reactor_batch.csv` — 1,500 batch production records from a chemical plant process historian.
+**File:** `reactor_batch.csv` — 1,872 batch production records from a chemical plant process historian spanning three production campaigns.
 
 | Column | Type | Unit | Description |
 |--------|------|------|-------------|
@@ -88,15 +88,15 @@ The Elbow method and Silhouette score were computed for k = 2 to 9. Both agreed 
 
 | Metric | Value | Interpretation |
 |--------|-------|----------------|
-| **Silhouette Score** | 0.4396 | Good — operating modes are well-separated in multivariate space |
-| **Calinski-Harabasz Index** | 1435.15 | High — strong inter-cluster separation |
-| **Davies-Bouldin Index** | 0.9166 | < 1.0 — compact and distinct clusters |
-| **Hopkins Statistic** | 0.8025 | > 0.75 — strong cluster structure confirmed (data is not random) |
-| **Stability (Silhouette std)** | 0.0000 | Perfectly deterministic across 10 random seeds |
-| **ARI vs Ground Truth** | 1.0000 | Perfect — K-Means fully recovered all 4 operating modes |
-| **NMI vs Ground Truth** | 1.0000 | Perfect information alignment with true labels |
+| **Silhouette Score** | 0.3331 | Moderate — operating modes are separable but with some boundary overlap |
+| **Calinski-Harabasz Index** | 1140.80 | High — strong inter-cluster separation despite boundary noise |
+| **Davies-Bouldin Index** | 1.1712 | Near 1.0 — clusters are compact with limited overlap at the mode boundaries |
+| **Hopkins Statistic** | 0.6657 | > 0.50 — confirmed non-random cluster structure (data is not uniformly distributed) |
+| **Stability (Silhouette std)** | 0.0000 | Perfectly deterministic across 10 random seeds — K-Means converges to the same solution |
+| **ARI vs Ground Truth** | 0.9020 | Strong — K-Means recovered the 4 operating modes with ~10% boundary misassignment |
+| **NMI vs Ground Truth** | 0.8813 | High mutual information between discovered clusters and expert ground truth |
 
-ARI = 1.0 means the unsupervised algorithm, given no labels and no prior knowledge, produced cluster assignments that are identical to the expert-labeled ground truth. Every batch landed in exactly the right operating mode. This result reflects a dataset with well-separated process regimes — real-world deployments with noisy sensors and gradual mode transitions will produce lower scores. The methodology remains valid; the validation baseline shifts.
+ARI = 0.9020 reflects a realistic unsupervised result on multi-campaign industrial data. The algorithm recovered the four operating modes with high fidelity, but boundary batches — particularly those transitioning between the poor heat transfer and aggressive reaction regimes — were assigned to the wrong cluster in approximately 10% of cases. This is not a model failure; it is an accurate description of what happens when gradual process drift erodes the gap between operating modes. The four-mode structure is real and actionable. The 10% boundary zone is where operator judgment and engineering limits must supplement statistical assignment.
 
 ---
 
@@ -104,10 +104,10 @@ ARI = 1.0 means the unsupervised algorithm, given no labels and no prior knowled
 
 | Cluster | Mode | Batches | Temp | Pressure | Cooling | Rxn Time | Conversion |
 |---------|------|---------|------|----------|---------|----------|------------|
-| C0 | Slow Reaction / Low Yield | 375 (25%) | 68°C | 1.98 bar | 101 L/min | 105 min | 85% |
-| C1 | Poor Heat Transfer | 300 (20%) | 92°C | 3.48 bar | 44 L/min | 85 min | 90% |
-| C2 | Normal Operation | 525 (35%) | 80°C | 2.48 bar | 90 L/min | 80 min | 95% |
-| C3 | Aggressive / Runaway Risk | 300 (20%) | 100°C | 4.43 bar | 60 L/min | 60 min | 98% |
+| C0 | Slow Reaction / Low Yield | 451 (24.1%) | 69°C | 2.01 bar | 99 L/min | 106 min | 85% |
+| C1 | Poor Heat Transfer | 398 (21.3%) | 91°C | 3.45 bar | 45 L/min | 84 min | 90% |
+| C2 | Normal Operation | 621 (33.2%) | 80°C | 2.51 bar | 89 L/min | 81 min | 95% |
+| C3 | Aggressive / Runaway Risk | 402 (21.5%) | 99°C | 4.38 bar | 61 L/min | 62 min | 98% |
 
 **C0 — Slow Reaction / Low Yield:** The reactor is under-driven. Temperature is too low (68°C), the cooling system is working overtime (101 L/min), and reactant conversion is stuck at 85%. These batches are wasting time and energy without producing the yield the recipe was designed for.
 
@@ -124,7 +124,7 @@ ARI = 1.0 means the unsupervised algorithm, given no labels and no prior knowled
 ```
 KMeans_Runaway_Risk/
 ├── 15_KMeans_Runaway_Risk.ipynb   # Full educational notebook
-├── reactor_batch.csv              # Complete 1,500-record dataset
+├── reactor_batch.csv              # Complete 1,872-record dataset
 ├── app.py                         # Streamlit batch classifier simulator
 ├── requirements.txt
 └── README.md
@@ -167,7 +167,7 @@ streamlit run app.py
 
 3. **Elbow and Silhouette should agree.** When both independent criteria point to the same k, the cluster count is grounded in the data structure — not an artifact of the method. If they disagree, investigate whether the dataset truly has that many modes or whether the signal is weaker than it appears.
 
-4. **ARI = 1.0 is a gift, not a standard.** Perfect external validation is possible in clean, well-designed simulated datasets. In production environments with noisy sensors, gradual mode transitions, and unlabeled historical data, ARI will be lower. The modeling methodology is identical; only the benchmark changes.
+4. **ARI = 0.9020 is the honest number.** The ~10% of boundary misassignments are not random errors — they are batches where two operating modes overlap in process space, typically during transition periods between campaigns. The four-cluster structure is real. The boundary zone is real too. Both are operationally meaningful.
 
 5. **The centroid table is the deliverable, not the cluster assignment.** A cluster label means nothing to a process engineer. What matters is the profile — 92°C, 44 L/min cooling, 85 min — because that is the language of the DCS screen, the maintenance ticket, and the corrective action. The model's value is in making the centroid interpretable, not in the mathematics that produced it.
 
